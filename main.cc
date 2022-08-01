@@ -62,6 +62,23 @@ Mat32f opencv2img(cv::Mat img) {
 	
 }
 
+cv::Mat img2opencv(Mat32f img) {
+
+	int w = img.cols(), h = img.rows();
+	cv::Mat res(h, w, CV_8UC3);
+
+	REP(i, h)
+		REP(j, w) {
+			res.ptr(i,j)[0] = img.at(i, j, 0) * 255.0;
+			res.ptr(i,j)[1] = img.at(i, j, 1) * 255.0;
+			res.ptr(i,j)[2] = img.at(i, j, 2) * 255.0;
+		}
+
+	cv::cvtColor(res, res, cv::COLOR_BGR2RGBA);
+	return res;
+	
+}
+
 void test_extrema(const char* fname, int mode) {
 	//auto mat = read_img(fname);
 	cv::Mat image = cv::imread(fname);
@@ -293,7 +310,11 @@ void test(int argc, char* argv[]) {
 		res = crop(res);
 		print_debug("Crop from %dx%d to %dx%d\n", oldw, oldh, res.width(), res.height());
 	}
+	cv::Mat image = img2opencv(res);
+	cv::namedWindow("Test window");
 	
+	cv::imshow("Test window", image);
+	cv::waitKey(0);
 	{
 		GuardedTimer tm("Writing image");
 		write_rgb(IMGFILE(out), res);
