@@ -20,20 +20,10 @@ namespace pano {
 const static char* HOMOGRAPHY_DUMP = "parameter";
 
 Mat32f CylinderStitcher::build() {
-	if(LOADHOMO){
-          REP(k, (int)imgs.size()){
-    	    imgs[k].load();
-          }
-          bundle.identity_idx = imgs.size() >> 1;
-          bundle.load_homography(HOMOGRAPHY_DUMP);
-        }
-        else{
-          calc_feature();	  
-          bundle.identity_idx = imgs.size() >> 1;
-	  build_warp();
-	  free_feature();
-        }
-
+    calc_feature();	  
+    bundle.identity_idx = imgs.size() >> 1;
+	build_warp();
+	free_feature();
 	bundle.proj_method = ConnectedImages::ProjectionMethod::flat;
 	bundle.update_proj_range();
 	auto ret = bundle.blend();

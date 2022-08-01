@@ -244,15 +244,15 @@ void work(int argc, char* argv[]) {
 	vector<string> imgs;
 	REPL(i, 1, argc) imgs.emplace_back(argv[i]);
 	Mat32f res;
+	StitcherBase *p;
 	if (CYLINDER) {
-		CylinderStitcher p(move(imgs));
-		res = p.build();
-	} else {
-		Stitcher p(move(imgs));
+		p = new CylinderStitcher(move(imgs));		
 		//res = p.build();
-		res = p.build_new();
+	} else {
+		p = new Stitcher(move(imgs));
+		//res = p.build();
 	}
-
+    res = p->build();
 	if (CROP) {
 		int oldw = res.width(), oldh = res.height();
 		res = crop(res);
@@ -262,6 +262,42 @@ void work(int argc, char* argv[]) {
 		GuardedTimer tm("Writing image");
 		write_rgb(IMGFILE(out), res);
 	}
+}
+
+void test(int argc, char* argv[]) {
+/*
+ *  vector<Mat32f> imgs(argc - 1);
+ *  {
+ *    GuardedTimer tm("Read images");
+ *#pragma omp parallel for schedule(dynamic)
+ *    REPL(i, 1, argc)
+ *      imgs[i-1] = read_img(argv[i]);
+ *  }
+ */
+ 	std::cout << "test start" << std::endl;
+	vector<string> imgs;
+	REPL(i, 2, argc) imgs.emplace_back(argv[i]);
+	Mat32f res;
+	StitcherBase *p;
+	if (CYLINDER) {
+		p = new CylinderStitcher(move(imgs));		
+		//res = p.build();
+	} else {
+		p = new Stitcher(move(imgs));
+		//res = p.build();
+		//res = p.build_new();
+	}
+	res = p->build_new();
+	if (CROP) {
+		int oldw = res.width(), oldh = res.height();
+		res = crop(res);
+		print_debug("Crop from %dx%d to %dx%d\n", oldw, oldh, res.width(), res.height());
+	}
+	
+	/*{
+		GuardedTimer tm("Writing image");
+		write_rgb(IMGFILE(result), res);
+	}*/
 }
 
 void init_config() {
