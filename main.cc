@@ -294,10 +294,10 @@ void test(int argc, char* argv[]) {
 		print_debug("Crop from %dx%d to %dx%d\n", oldw, oldh, res.width(), res.height());
 	}
 	
-	/*{
+	{
 		GuardedTimer tm("Writing image");
-		write_rgb(IMGFILE(result), res);
-	}*/
+		write_rgb(IMGFILE(out), res);
+	}
 }
 
 void init_config() {
@@ -418,6 +418,8 @@ int main(int argc, char* argv[]) {
 		test_warp(argc, argv);
 	else if (command == "planet")
 		planet(argv[2]);
+	else if (command == "test")
+		test(argc, argv);
 	else
 		// the real routine
 		work(argc, argv);
