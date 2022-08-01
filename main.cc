@@ -43,8 +43,30 @@ bool TEMPDEBUG = false;
 
 const int LABEL_LEN = 7;
 
+Mat32f opencv2img(cv::Mat img) {
+
+	cv::cvtColor(img, img, cv::COLOR_BGR2RGBA);
+	unsigned w = img.cols, h = img.rows;
+	Mat32f mat(h, w, 3);
+	unsigned npixel = w * h;
+	float* p = mat.ptr();
+	unsigned char* data = img.data;
+
+	REP(i, npixel) {
+		*(p++) = (float)*(data++) / 255.0;
+		*(p++) = (float)*(data++) / 255.0;
+		*(p++) = (float)*(data++) / 255.0;
+		data++;	// rgba
+	}
+	return mat;
+	
+}
+
 void test_extrema(const char* fname, int mode) {
-	auto mat = read_img(fname);
+	//auto mat = read_img(fname);
+	cv::Mat image = cv::imread(fname);
+	print_debug("opencv to cimg\n");
+	auto mat = opencv2img(image);
 
 	ScaleSpace ss(mat, NUM_OCTAVE, NUM_SCALE);
 	DOGSpace dog(ss);
