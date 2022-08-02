@@ -281,6 +281,38 @@ void work(int argc, char* argv[]) {
 	}
 }
 
+void loop(char* argv[]) {
+
+ 	std::cout << "loop start" << std::endl;
+	vector<string> imgs;	
+	REP(i, stoi(argv[2])) imgs.emplace_back(" ");
+	
+	Mat32f res;
+
+	CylinderStitcher *p = new CylinderStitcher(move(imgs));
+	std::cout << "load stream" << std::endl;
+	p->load_stream(stoi(argv[2]));		
+
+	while(char(cv::waitKey(10)) != 'q'){
+		std::cout << "while loop start" << std::endl;
+		res = p->build_stream();
+		if (CROP) {
+			int oldw = res.width(), oldh = res.height();
+			res = crop(res);
+			print_debug("Crop from %dx%d to %dx%d\n", oldw, oldh, res.width(), res.height());
+		}
+		//sleep(1);
+		cv::Mat image = img2opencv(res);
+		cv::imshow("video window", image);
+	}
+	delete p;
+	{
+		GuardedTimer tm("Writing image");
+		write_rgb(IMGFILE(out), res);
+	}
+
+}
+
 void test(int argc, char* argv[]) {
 /*
  *  vector<Mat32f> imgs(argc - 1);
@@ -439,12 +471,14 @@ int main(int argc, char* argv[]) {
 		test_warp(argc, argv);
 	else if (command == "planet")
 		planet(argv[2]);
+	else if (command == "loop")
+		loop(argv);
 	else if (command == "test")
 		test(argc, argv);
 	else
 		// the real routine
 		work(argc, argv);
-	sleep(0.5);
+	/*sleep(0.5);
 	cv::Mat image = cv::imread("out.jpg");
 	cv::namedWindow("Test window");
 	cv::imshow("Test window", image);

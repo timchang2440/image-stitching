@@ -38,6 +38,7 @@ class CylinderStitcher : public StitcherBase {
 
 		virtual Mat32f build();
 		virtual Mat32f build_new();
+		Mat32f build_stream();	
 };
 
 

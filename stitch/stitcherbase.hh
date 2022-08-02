@@ -23,7 +23,7 @@ class StitcherBase {
 			>::type;
 
 		std::vector<ImageRef> imgs;
-
+		std::vector<cv::VideoCapture> caps;
 		// feature and keypoints of each image
     // feats[k][i].coor == keypoints[k][i]
     // keypoints only work as a storage of feats, because feats will be freed
@@ -58,7 +58,7 @@ class StitcherBase {
 
 		virtual Mat32f build() = 0;
 		virtual Mat32f build_new() = 0;
-
+		void load_stream(int number);
 		virtual ~StitcherBase() = default;
 };
 

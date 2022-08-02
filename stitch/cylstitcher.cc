@@ -51,6 +51,24 @@ Mat32f CylinderStitcher::build_new() {
 	return perspective_correction(ret);
 }
 
+Mat32f CylinderStitcher::build_stream() {
+	//cv::Mat image = cv::imread("4.jpg");
+	cv::Mat tmp;
+
+	REP(i, (int)imgs.size()){
+		caps[i] >> tmp;
+		imgs[i].load_opencv(tmp);
+	}
+	
+    bundle.identity_idx = imgs.size() >> 1;
+    bundle.load_homography(HOMOGRAPHY_DUMP);
+
+	bundle.proj_method = ConnectedImages::ProjectionMethod::flat;
+	bundle.update_proj_range();
+	auto ret = bundle.blend();
+	return perspective_correction(ret);
+}
+
 void CylinderStitcher::build_warp() {;
 	GuardedTimer tm("build_warp()");
 	int n = imgs.size(), mid = bundle.identity_idx;

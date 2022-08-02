@@ -29,6 +29,19 @@ void StitcherBase::calc_feature() {
   std::cout << std::endl;
 }
 
+void StitcherBase::load_stream(int number) {
+	
+	std::string sub = ".webm";
+	REPL(i, 1, number+1) {
+    std::cout << std::to_string(i)+sub << std::endl;
+    std::string name = std::to_string(i)+sub;
+    cv::VideoCapture cap(name);
+
+		caps.push_back(cap);
+	}
+	
+}
+
 void StitcherBase::free_feature() {
   feats.clear(); feats.shrink_to_fit();  // free memory for feature
   keypoints.clear(); keypoints.shrink_to_fit();  // free memory for feature
