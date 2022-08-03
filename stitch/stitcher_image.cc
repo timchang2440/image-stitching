@@ -168,6 +168,9 @@ void ConnectedImages::save_homography(const char* fname) const {
 void ConnectedImages::load_homography(const char* fname) {
   //print_debug("Load homography matrix from %s\n", fname);
   ifstream fin(fname);
+  if(!fin.is_open())
+    error_exit("Parameter file can not read, please check file existed.\n");
+
   int n = component.size();
   REP(i, n) REP(j,9) {
     fin >> component[i].homo.data[j];
