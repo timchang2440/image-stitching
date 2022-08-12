@@ -252,7 +252,6 @@ void test_warp(int argc, char* argv[]) {
 	}
 }
 
-
 void work(int argc, char* argv[]) {
 /*
  *  vector<Mat32f> imgs(argc - 1);
@@ -290,25 +289,40 @@ void work(int argc, char* argv[]) {
 void loop(int argc, char* argv[]) {
 
  	std::cout << "loop start" << std::endl;
-	vector<string> imgs;	
-	//REP(i, stoi(argv[2])) imgs.emplace_back(" ");
+	vector<string> imgs, imgs1;	
 	REPL(i, 2, argc) imgs.emplace_back(" ");
-	
-	Mat32f res;
+	REP(i, 2) imgs1.emplace_back(" ");
 
-	CylinderStitcher *p = new CylinderStitcher(move(imgs));
+	Mat32f res;
+	
+	CylinderStitcher *p = new CylinderStitcher(move(imgs)), *q = new CylinderStitcher(move(imgs1));
 	std::cout << "load stream" << std::endl;
 	p->load_stream(imgs.size(), argv);		
 
-	while(char(cv::waitKey(10)) != 'q'){
+	while(char(cv::waitKey(30)) != 'q'){
 		res = p->build_stream();
+
+		Mat32f left(res.height(), int(res.width() / 2), 3);
+		Mat32f right(res.height(), int(res.width() / 2), 3);
+		REP(i, left.height())
+		{
+			float* dst = left.ptr(i, 0);
+			const float* src = res.ptr(i);
+			memcpy(dst, src, 3 * left.width() * sizeof(float));
+		}
+		REP(i, right.height()) 
+		{
+			float* dst = right.ptr(i, 0);
+			const float* src = res.ptr(i, right.width());
+			memcpy(dst, src, 3 * right.width() * sizeof(float));
+		}
+		res = q->build_two_image(right, left);
+		//sleep(1);
 		if (CROP) {
 			//int oldw = res.width(), oldh = res.height();
 			res = crop(res);
 			//print_debug("Crop from %dx%d to %dx%d\n", oldw, oldh, res.width(), res.height());
 		}
-
-		//sleep(1);
 		cv::Mat image = img2opencv(res);
 		cv::resize(image, image, cv::Size(image.cols * 0.5, image.rows * 0.5));
 		cv::imshow("video window", image);
@@ -338,14 +352,8 @@ void test(int argc, char* argv[]) {
 	REPL(i, 2, argc) imgs.emplace_back(argv[i]);
 	Mat32f res;
 	StitcherBase *p;
-	if (CYLINDER) {
-		p = new CylinderStitcher(move(imgs));		
-		//res = p.build();
-	} else {
-		p = new Stitcher(move(imgs));
-		//res = p.build();
-		//res = p.build_new();
-	}
+	p = new CylinderStitcher(move(imgs));		
+
 	res = p->build_new();
 	if (CROP) {
 		int oldw = res.width(), oldh = res.height();
@@ -359,11 +367,33 @@ void test(int argc, char* argv[]) {
 	
 	cv::imshow("Test window", image);
 	cv::waitKey(0);
-	
-	/*{
+	{
 		GuardedTimer tm("Writing image");
 		write_rgb(IMGFILE(result), res);
-	}*/
+	}
+}
+
+void parameter(int argc, char* argv[]) {
+
+ 	std::cout << "Generate parameter start!!" << std::endl;
+	vector<string> imgs, imgs1;
+	REPL(i, 2, argc) imgs.emplace_back(argv[i]);
+	imgs1.emplace_back(argv[argc-1]); imgs1.emplace_back(argv[2]); 
+	Mat32f res1, res2;
+	CylinderStitcher *p = new CylinderStitcher(move(imgs)), *q = new CylinderStitcher(move(imgs1));
+	std::cout << "Save parameter" << std::endl;
+	res1 = p->build_save("parameter");
+	res2 = q->build_save("parameter2");
+	//cv::Mat image = cv::imread("out.jpg");
+	cv::Mat image = img2opencv(res1);
+	cv::namedWindow("Test window");
+	
+	cv::imshow("Test window", image);
+	cv::waitKey(0);
+	{
+		GuardedTimer tm("Writing image");
+		write_rgb(IMGFILE(result), res1);
+	}
 }
 
 void init_config() {
@@ -488,6 +518,8 @@ int main(int argc, char* argv[]) {
 		loop(argc, argv);
 	else if (command == "test")
 		test(argc, argv);
+	else if (command == "parameter")
+		parameter(argc, argv);
 	else
 		// the real routine
 		work(argc, argv);

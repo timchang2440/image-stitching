@@ -20,13 +20,16 @@ using namespace std;
 namespace pano {
 
 const static char* HOMOGRAPHY_DUMP = "parameter";
+const static char* HOMOGRAPHY_DUMP2 = "parameter2";
 
 bool once = true;
+bool once1 = true;
 
 Mat32f CylinderStitcher::build() {
     calc_feature();	  
     bundle.identity_idx = imgs.size() >> 1;
 	build_warp();
+	bundle.save_homography(HOMOGRAPHY_DUMP);
 	free_feature();
 	bundle.proj_method = ConnectedImages::ProjectionMethod::flat;
 	bundle.update_proj_range();
@@ -35,22 +38,20 @@ Mat32f CylinderStitcher::build() {
 }
 
 Mat32f CylinderStitcher::build_new() {
-	//cv::Mat image = cv::imread("4.jpg");
-	cv::Mat tmp;
 	
 	if(LOADHOMO){
-
         REP(k, (int)imgs.size()){
     		imgs[k].load();
-        }	
-		
-        bundle.identity_idx = imgs.size() >> 1;
+        }
+
+		bundle.identity_idx = imgs.size() >> 1;
         bundle.load_homography(HOMOGRAPHY_DUMP);
     }
     else{
-        calc_feature();	  
+        calc_feature();
         bundle.identity_idx = imgs.size() >> 1;
 	    build_warp();
+		bundle.save_homography(HOMOGRAPHY_DUMP);
 	    free_feature();
     }
 
@@ -60,13 +61,42 @@ Mat32f CylinderStitcher::build_new() {
 	return perspective_correction(ret);
 }
 
+Mat32f CylinderStitcher::build_two_image(Mat32f right, Mat32f left) {
+	
+    imgs[0].load_mat32f(right);
+	imgs[1].load_mat32f(left);
+
+    if(once1){
+		bundle.identity_idx = imgs.size() >> 1;
+		bundle.load_homography(HOMOGRAPHY_DUMP2);
+		bundle.proj_method = ConnectedImages::ProjectionMethod::flat;
+		bundle.update_proj_range();
+		once1 = false;
+	}
+
+	auto ret = bundle.blend();
+	return perspective_correction(ret);
+}
+
+Mat32f CylinderStitcher::build_save(const char* filename) {
+	
+    calc_feature();	  
+    bundle.identity_idx = imgs.size() >> 1;
+	build_warp();
+	bundle.save_homography(filename);
+	free_feature();
+	bundle.proj_method = ConnectedImages::ProjectionMethod::flat;
+	bundle.update_proj_range();
+	auto ret = bundle.blend();
+	return perspective_correction(ret);
+}
+
 Mat32f CylinderStitcher::build_stream() {
 	//cv::Mat image = cv::imread("4.jpg");
 	cv::Mat tmp;
-
 	REP(i, (int)imgs.size()){
 		caps[i] >> tmp;
-		imgs[i].load_opencv(tmp);
+		imgs[i].load_opencv(tmp);		
 	}
 
 	if(once){
@@ -136,7 +166,6 @@ void CylinderStitcher::build_warp() {
 	}
 	REPD(i, mid - 2, 0)
 		bundle.component[i].homo = bundle.component[i + 1].homo * bundle.component[i].homo;
-	bundle.save_homography(HOMOGRAPHY_DUMP);
 	bundle.calc_inverse_homo();
 }
 
