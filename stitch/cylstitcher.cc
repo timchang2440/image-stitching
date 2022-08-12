@@ -91,6 +91,20 @@ Mat32f CylinderStitcher::build_save(const char* filename) {
 	return perspective_correction(ret);
 }
 
+Mat32f CylinderStitcher::build_load(const char* filename) {
+	
+    REP(k, (int)imgs.size()){
+    	imgs[k].load();
+    }
+
+	bundle.identity_idx = imgs.size() >> 1;
+    bundle.load_homography(filename);
+	bundle.proj_method = ConnectedImages::ProjectionMethod::flat;
+	bundle.update_proj_range();
+	auto ret = bundle.blend();
+	return perspective_correction(ret);
+}
+
 Mat32f CylinderStitcher::build_stream() {
 	//cv::Mat image = cv::imread("4.jpg");
 	cv::Mat tmp;
