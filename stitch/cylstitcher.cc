@@ -78,9 +78,11 @@ Mat32f CylinderStitcher::build_two_image(Mat32f right, Mat32f left) {
 	return perspective_correction(ret);
 }
 
-Mat32f CylinderStitcher::build_save(const char* filename) {
+bool CylinderStitcher::build_save(const char* filename, Mat32f& mat) {
 	
-    calc_feature();	  
+    calc_feature();
+	if(strcmp(filename, "parameter") == 0)
+		crop_save();
     bundle.identity_idx = imgs.size() >> 1;
 	build_warp();
 	bundle.save_homography(filename);
@@ -88,7 +90,8 @@ Mat32f CylinderStitcher::build_save(const char* filename) {
 	bundle.proj_method = ConnectedImages::ProjectionMethod::flat;
 	bundle.update_proj_range();
 	auto ret = bundle.blend();
-	return perspective_correction(ret);
+	mat = perspective_correction(ret);
+	return true;
 }
 
 Mat32f CylinderStitcher::build_load(const char* filename) {
@@ -106,7 +109,6 @@ Mat32f CylinderStitcher::build_load(const char* filename) {
 }
 
 Mat32f CylinderStitcher::build_stream() {
-	//cv::Mat image = cv::imread("4.jpg");
 	cv::Mat tmp;
 	REP(i, (int)imgs.size()){
 		caps[i] >> tmp;
@@ -120,9 +122,11 @@ Mat32f CylinderStitcher::build_stream() {
 		bundle.update_proj_range();
 		once = false;
 	}
-
-	auto ret = bundle.blend();
-	return perspective_correction(ret);
+	return bundle.blend();
+	
+	//original code. if don't care y-axis and rotation, it is not needed.
+	//auto ret = bundle.blend();
+	//return perspective_correction(ret);
 }
 
 void CylinderStitcher::build_warp() {
@@ -181,6 +185,65 @@ void CylinderStitcher::build_warp() {
 	REPD(i, mid - 2, 0)
 		bundle.component[i].homo = bundle.component[i + 1].homo * bundle.component[i].homo;
 	bundle.calc_inverse_homo();
+}
+
+bool CylinderStitcher::build_warp2() {
+	GuardedTimer tm("build_warp()");
+	int n = imgs.size(), mid = bundle.identity_idx;
+	REP(i, n) bundle.component[i].homo = Homography::I();
+
+	Timer timer;
+	vector<MatchData> matches;		// matches[k]: k,k+1
+	PairWiseMatcher pwmatcher(feats);
+	matches.resize(n-1);
+#pragma omp parallel for schedule(dynamic)
+	REP(k, n - 1)
+		matches[k] = pwmatcher.match(k, (k + 1) % n);
+	print_debug("match time: %lf secs\n", timer.duration());
+
+	vector<Homography> bestmat;
+
+	float minslope = numeric_limits<float>::max();
+	float bestfactor = 1;
+	if (n - mid > 1) {
+		float newfactor = 1;
+		// XXX: ugly
+		float slope = update_h_factor(newfactor, minslope, bestfactor, bestmat, matches);
+		if (bestmat.empty())
+			error_exit("Failed to find hfactor");
+		float centerx1 = 0, centerx2 = bestmat[0].trans2d(0, 0).x;
+		float order = (centerx2 > centerx1 ? 1 : -1);
+		REP(k, 3) {
+			if (fabs(slope) < SLOPE_PLAIN) break;
+			newfactor += (slope < 0 ? order : -order) / (5 * pow(2, k));
+			slope = update_h_factor(newfactor, minslope, bestfactor, bestmat, matches);
+		}
+	}
+	print_debug("Best hfactor: %lf\n", bestfactor);
+	CylinderWarper warper(bestfactor);
+	REP(k, n) imgs[k].load();
+#pragma omp parallel for schedule(dynamic)
+	REP(k, n) warper.warp(*imgs[k].img, keypoints[k]);
+
+	// accumulate
+	REPL(k, mid + 1, n) bundle.component[k].homo = move(bestmat[k - mid - 1]);
+#pragma omp parallel for schedule(dynamic)
+	REPD(i, mid - 1, 0) {
+		matches[i].reverse();
+		MatchInfo info;
+		bool succ = TransformEstimation(
+				matches[i], keypoints[i + 1], keypoints[i],
+				imgs[i+1].shape(), imgs[i].shape()).get_transform(&info);
+		// Can match before, but not here. This would be a bug.
+		if (! succ)
+			error_exit(ssprintf("Failed to match between image %d and %d.", i, i+1));
+		// homo: operate on half-shifted coor
+		bundle.component[i].homo = info.homo;
+	}
+	REPD(i, mid - 2, 0)
+		bundle.component[i].homo = bundle.component[i + 1].homo * bundle.component[i].homo;
+	bundle.calc_inverse_homo();
+	return true;
 }
 
 float CylinderStitcher::update_h_factor(float nowfactor,
@@ -274,6 +337,17 @@ Mat32f CylinderStitcher::perspective_correction(const Mat32f& img) {
 		return inv.trans2d(Vec2D(c.x, c.y));
 	});
 	return blender.run();
+}
+
+void CylinderStitcher::crop_save() {
+int shift = 5;
+#pragma omp parallel for schedule(dynamic)
+  	REP(k, (int)imgs.size()) {
+		imgs[k].load();		
+		imgs[k].cropped(shift, 0, imgs[k]._width-(shift*2), imgs[k]._height);
+		write_rgb(std::to_string(k+1) + ".jpg", *imgs[k].img);
+  	}
+
 }
 
 }

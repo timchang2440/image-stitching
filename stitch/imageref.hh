@@ -30,9 +30,11 @@ struct ImageRef {
   
   void load_opencv(cv::Mat img_cv){
     //print_debug("load opencv image");
+    if (img) delete img;
     cv::cvtColor(img_cv, img_cv, cv::COLOR_BGR2RGBA);
 	  unsigned w = img_cv.cols, h = img_cv.rows;
 	  Mat32f *mat = new Mat32f(h, w, 3);
+
 	  unsigned npixel = w * h;
 	  float* p = mat->ptr();
 	  unsigned char* data = img_cv.data;
@@ -49,9 +51,10 @@ struct ImageRef {
   }
 
   void load_mat32f(Mat32f LRimg) {
-      if (img) 
+      if (img)
         return;
       Mat32f *mat = new Mat32f(LRimg.height(), LRimg.width(), 3);
+  #pragma omp parallel for schedule(dynamic)
       REP(i, LRimg.height())
         REP(j, LRimg.width()){
           mat->at(i, j, 0) = LRimg.at(i, j, 0);
@@ -66,10 +69,11 @@ struct ImageRef {
   }
 
   void cropped(int startX, int startY, int width, int height){
-    
+    //std::cout << "1. " << startX + width << ", " << startY + height << std::endl;
+    //std::cout << "2. "<< _width << ", " << _height << std::endl;
     if(startX + width > _width || startY + height > _height) error_exit("Failed to crop image\n");
     Mat32f *mat = new Mat32f(height, width, 3);
-    std::cout << _width << ", " << _height << std::endl;
+  #pragma omp parallel for schedule(dynamic) 
     REP(i, height)
 			REP(j, width) {
         mat->at(i, j, 0) = img->at(i+startY, j+startX, 0);
