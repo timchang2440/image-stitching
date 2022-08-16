@@ -81,16 +81,20 @@ Mat32f CylinderStitcher::build_two_image(Mat32f right, Mat32f left) {
 bool CylinderStitcher::build_save(const char* filename, Mat32f& mat) {
 	
     calc_feature();
-	if(strcmp(filename, "parameter") == 0)
-		crop_save();
     bundle.identity_idx = imgs.size() >> 1;
-	build_warp();
+	if(!build_warp2()){
+		if(strcmp(filename, "parameter") == 0)
+			crop_save();
+		return false;
+	}
 	bundle.save_homography(filename);
 	free_feature();
 	bundle.proj_method = ConnectedImages::ProjectionMethod::flat;
 	bundle.update_proj_range();
 	auto ret = bundle.blend();
 	mat = perspective_correction(ret);
+	if(strcmp(filename, "parameter") == 0)
+		crop_save();
 	return true;
 }
 
@@ -209,8 +213,10 @@ bool CylinderStitcher::build_warp2() {
 		float newfactor = 1;
 		// XXX: ugly
 		float slope = update_h_factor(newfactor, minslope, bestfactor, bestmat, matches);
-		if (bestmat.empty())
-			error_exit("Failed to find hfactor");
+		if (bestmat.empty()){
+			return false;
+		}
+			//error_exit("Failed to find hfactor");
 		float centerx1 = 0, centerx2 = bestmat[0].trans2d(0, 0).x;
 		float order = (centerx2 > centerx1 ? 1 : -1);
 		REP(k, 3) {
@@ -227,7 +233,7 @@ bool CylinderStitcher::build_warp2() {
 
 	// accumulate
 	REPL(k, mid + 1, n) bundle.component[k].homo = move(bestmat[k - mid - 1]);
-#pragma omp parallel for schedule(dynamic)
+//#pragma omp parallel for schedule(dynamic)
 	REPD(i, mid - 1, 0) {
 		matches[i].reverse();
 		MatchInfo info;
@@ -235,14 +241,18 @@ bool CylinderStitcher::build_warp2() {
 				matches[i], keypoints[i + 1], keypoints[i],
 				imgs[i+1].shape(), imgs[i].shape()).get_transform(&info);
 		// Can match before, but not here. This would be a bug.
-		if (! succ)
-			error_exit(ssprintf("Failed to match between image %d and %d.", i, i+1));
+		if (! succ){
+			REP(k, n) imgs[k].release();
+			return false;
+		}
+			//error_exit(ssprintf("Failed to match between image %d and %d.", i, i+1));
 		// homo: operate on half-shifted coor
 		bundle.component[i].homo = info.homo;
 	}
 	REPD(i, mid - 2, 0)
 		bundle.component[i].homo = bundle.component[i + 1].homo * bundle.component[i].homo;
 	bundle.calc_inverse_homo();
+	REP(k, n) imgs[k].release();
 	return true;
 }
 

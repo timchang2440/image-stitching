@@ -410,6 +410,7 @@ void parameter(int argc, char* argv[]) {
 	CylinderStitcher *p = new CylinderStitcher(move(imgs)), 
 					 *q = new CylinderStitcher(move(imgs1));
 	for(int i = 0;i < 20;i++){
+		sleep(1);
 		if(!p->build_save("parameter", res))
 			continue;
 		//q->build_save("parameter2");
