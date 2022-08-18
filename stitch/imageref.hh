@@ -31,6 +31,7 @@ struct ImageRef {
   void load_opencv(cv::Mat img_cv){
     //print_debug("load opencv image");
     if (img) delete img;
+    //cv::resize(img_cv, img_cv, cv::Size(1280, 720));
     cv::cvtColor(img_cv, img_cv, cv::COLOR_BGR2RGBA);
 	  unsigned w = img_cv.cols, h = img_cv.rows;
 	  Mat32f *mat = new Mat32f(h, w, 3);
@@ -40,19 +41,21 @@ struct ImageRef {
 	  unsigned char* data = img_cv.data;
 
 	  REP(i, npixel) {
-		  *(p++) = (float)*(data++) / 255.0;
-		  *(p++) = (float)*(data++) / 255.0;
-		  *(p++) = (float)*(data++) / 255.0;
+		  *(p++) = *(data++) / 255.0;
+		  *(p++) = *(data++) / 255.0;
+		  *(p++) = *(data++) / 255.0;
 		  data++;	// rgba
 	  }
+    //std::cout << w << ", " << h << std::endl;
+
 	  img = mat;
     _width = w;
     _height = h;
   }
 
   void load_mat32f(Mat32f LRimg) {
-      if (img)
-        return;
+      //if (img)
+      //  return;
       Mat32f *mat = new Mat32f(LRimg.height(), LRimg.width(), 3);
   #pragma omp parallel for schedule(dynamic)
       REP(i, LRimg.height())

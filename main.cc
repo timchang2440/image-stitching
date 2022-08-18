@@ -294,11 +294,10 @@ void loop(int argc, char* argv[]) {
 	REP(i, 2) imgs1.emplace_back(" ");
 
 	Mat32f res;
-	
 	CylinderStitcher *p = new CylinderStitcher(move(imgs)), *q = new CylinderStitcher(move(imgs1));
 	std::cout << "load stream" << std::endl;
-	p->load_stream(imgs.size(), argv);		
-
+	if(OPENCAM) p->load_camera(imgs.size());
+	else p->load_stream(imgs.size(), argv);		
 	while(char(cv::waitKey(30)) != 'q'){
 		res = p->build_stream();
 		if (CROP) {
@@ -328,7 +327,7 @@ void loop(int argc, char* argv[]) {
 			//print_debug("Crop from %dx%d to %dx%d\n", oldw, oldh, res.width(), res.height());
 		}
 		cv::Mat image = img2opencv(res);
-		cv::resize(image, image, cv::Size(image.cols * 0.5, image.rows * 0.5));
+		//cv::resize(image, image, cv::Size(image.cols * 0.5, image.rows * 0.5));
 		cv::imshow("video window", image);
 	}
 	//writer.release();
@@ -406,12 +405,12 @@ void parameter(int argc, char* argv[]) {
 	vector<string> imgs, imgs1;
 	REPL(i, 2, argc) imgs.emplace_back(argv[i]);
 	imgs1.emplace_back(argv[argc-1]); imgs1.emplace_back(argv[2]); 
-	Mat32f res;
+	Mat32f res, res2;
 	CylinderStitcher *p = new CylinderStitcher(move(imgs)), 
 					 *q = new CylinderStitcher(move(imgs1));
-	for(int i = 0;i < 20;i++){
-		sleep(1);
-		if(!p->build_save("parameter", res))
+	for(int i = 0;i < 30;i++){
+		sleep(0.1);
+		if(!p->build_save("parameter", res) || !q->build_save("parameter2", res2))
 			continue;
 		//q->build_save("parameter2");
 		//cv::Mat image = cv::imread("out.jpg");
@@ -420,6 +419,7 @@ void parameter(int argc, char* argv[]) {
 			string name = "result" + to_string(i) + ".jpg";
 			GuardedTimer tm("Writing image");
 			write_rgb(name, res);
+			write_rgb("test.jpg", res2);
 		}
 	}
 	
@@ -480,6 +480,7 @@ void init_config() {
 	CFG(MULTIPASS_BA);
 	CFG(MULTIBAND);
 	CFG(LOADHOMO);
+	CFG(OPENCAM);
 #undef CFG
 }
 

@@ -63,6 +63,7 @@ Mat32f CylinderStitcher::build_new() {
 
 Mat32f CylinderStitcher::build_two_image(Mat32f right, Mat32f left) {
 	
+	GuardedTimer tm("build twoImg");
     imgs[0].load_mat32f(right);
 	imgs[1].load_mat32f(left);
 
@@ -73,9 +74,9 @@ Mat32f CylinderStitcher::build_two_image(Mat32f right, Mat32f left) {
 		bundle.update_proj_range();
 		once1 = false;
 	}
-
-	auto ret = bundle.blend();
-	return perspective_correction(ret);
+	return bundle.blend();
+	//auto ret = bundle.blend();
+	//return perspective_correction(ret);
 }
 
 bool CylinderStitcher::build_save(const char* filename, Mat32f& mat) {
@@ -114,11 +115,14 @@ Mat32f CylinderStitcher::build_load(const char* filename) {
 
 Mat32f CylinderStitcher::build_stream() {
 	cv::Mat tmp;
+	GuardedTimer tm("build stream");
+	int shift = 160;
 	REP(i, (int)imgs.size()){
 		caps[i] >> tmp;
-		imgs[i].load_opencv(tmp);		
+		imgs[i].load_opencv(tmp);
+		imgs[i].cropped(shift, 0, imgs[i].width() - shift*2,imgs[i].height());
 	}
-
+	//std::cout << "load opencv" << std::endl;
 	if(once){
 		bundle.identity_idx = imgs.size() >> 1;
 		bundle.load_homography(HOMOGRAPHY_DUMP);
@@ -355,7 +359,10 @@ int shift = 5;
   	REP(k, (int)imgs.size()) {
 		imgs[k].load();		
 		imgs[k].cropped(shift, 0, imgs[k]._width-(shift*2), imgs[k]._height);
-		write_rgb(std::to_string(k+1) + ".jpg", *imgs[k].img);
+		std::cout << imgs[k].fname << std::endl;
+		write_rgb(imgs[k].fname, *imgs[k].img);
+		//write_rgb(std::to_string(k+1) + ".png", *imgs[k].img);
+		imgs[k].release();
   	}
 
 }

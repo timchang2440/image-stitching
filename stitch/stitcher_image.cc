@@ -159,8 +159,12 @@ void ConnectedImages::save_homography(const char* fname) const {
   ofstream fout(fname);
   m_assert(fout.good());
   int n = component.size();
-  REP(i, n) REP(j, 9) {		
-	fout << component[i].homo.data[j] << " ";		
+  REP(i, n) REP(j, 9) {
+    if(j == 0 || j == 4 || j == 8) fout << 1 << " ";
+    else if(j == 2 && strcmp(fname, "parameter2") == 0) fout << component[i].homo.data[j]*2 << " ";
+    else if(j == 2) fout << component[i].homo.data[j] << " ";
+    else fout << 0 << " ";
+	//fout << component[i].homo.data[j] << " ";		
   }
   fout.close();
 }
