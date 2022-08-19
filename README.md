@@ -19,9 +19,19 @@ This code is from [ppwwyyxx/OpenPanno](https://github.com/ppwwyyxx/OpenPano).
     You need to set **LOADHOMO** to 0 and run the code once to generate parameter.
     It will save homography matrix parameter based on image set.
     And then set **LOADHOMO** to 1 could skip the step before transformation.
-- Add parameter LOADCAM in config.cfg.
-	Setting LOADCAM to 1 would open camera stream. Otherwise, setting 0 would load video.
-- Add **test** command. It could show stitching result by using opencv imshow() function.
-	    ./image_stitch test file1 file2 ...
-- Add **loop** command. It could load video stream
-	    ./image_stitch loop file1 file2 ...
+	
+- Add parameter **LOADCAM** in config.cfg would swich load camera or video.
+
+
+## Usage
+	/*Generate homography matrix step, use png or jpg format. It would generate parameter, parameter2 and crop file.*/
+	./image_stitch parameter file1 file2 ...
+	
+	/*Only Test picture and use parameter matrix, not concatenate final and first picture.
+	./image_stitch test file1 file2 ...
+	
+	/*Setting OPENCAM to 0 in config.cfg would Load video.*/
+	./image_stitch loop file1 file2 ...
+	
+	/*Setting OPENCAM to 1 in config.cfg would open camera, use camera index.*/
+	./image_stitch loop 0 1 ...

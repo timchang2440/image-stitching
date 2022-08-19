@@ -56,14 +56,15 @@ struct ImageRef {
   void load_mat32f(Mat32f LRimg) {
       //if (img)
       //  return;
-      Mat32f *mat = new Mat32f(LRimg.height(), LRimg.width(), 3);
-  #pragma omp parallel for schedule(dynamic)
-      REP(i, LRimg.height())
-        REP(j, LRimg.width()){
-          mat->at(i, j, 0) = LRimg.at(i, j, 0);
-          mat->at(i, j, 1) = LRimg.at(i, j, 1);
-          mat->at(i, j, 2) = LRimg.at(i, j, 2);
-        }
+      Mat32f *mat = new Mat32f{LRimg.clone()};
+  //     Mat32f *mat = new Mat32f(LRimg.height(), LRimg.width(), 3);
+  // #pragma omp parallel for schedule(dynamic)
+  //     REP(i, LRimg.height())
+  //       REP(j, LRimg.width()){
+  //         mat->at(i, j, 0) = LRimg.at(i, j, 0);
+  //         mat->at(i, j, 1) = LRimg.at(i, j, 1);
+  //         mat->at(i, j, 2) = LRimg.at(i, j, 2);
+  //       }
       delete img;
       
       img = mat;

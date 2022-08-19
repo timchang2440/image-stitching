@@ -43,7 +43,7 @@ class CylinderStitcher : public StitcherBase {
 
 		virtual Mat32f build();
 		virtual Mat32f build_new();	
-		Mat32f build_stream();
+		Mat32f build_stream(int);
 		Mat32f build_two_image(Mat32f, Mat32f);
 		bool build_save(const char*, Mat32f&);
 		Mat32f build_load(const char*);

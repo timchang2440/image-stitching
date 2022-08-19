@@ -58,7 +58,8 @@ Mat32f CylinderStitcher::build_new() {
 	bundle.proj_method = ConnectedImages::ProjectionMethod::flat;
 	bundle.update_proj_range();
 	auto ret = bundle.blend();
-	return perspective_correction(ret);
+	return ret;
+	//return perspective_correction(ret);
 }
 
 Mat32f CylinderStitcher::build_two_image(Mat32f right, Mat32f left) {
@@ -113,16 +114,14 @@ Mat32f CylinderStitcher::build_load(const char* filename) {
 	return perspective_correction(ret);
 }
 
-Mat32f CylinderStitcher::build_stream() {
+Mat32f CylinderStitcher::build_stream(int shift) {
 	cv::Mat tmp;
-	GuardedTimer tm("build stream");
-	int shift = 160;
+	GuardedTimer tm("build stream");	
 	REP(i, (int)imgs.size()){
 		caps[i] >> tmp;
 		imgs[i].load_opencv(tmp);
 		imgs[i].cropped(shift, 0, imgs[i].width() - shift*2,imgs[i].height());
 	}
-	//std::cout << "load opencv" << std::endl;
 	if(once){
 		bundle.identity_idx = imgs.size() >> 1;
 		bundle.load_homography(HOMOGRAPHY_DUMP);
@@ -359,7 +358,7 @@ int shift = 5;
   	REP(k, (int)imgs.size()) {
 		imgs[k].load();		
 		imgs[k].cropped(shift, 0, imgs[k]._width-(shift*2), imgs[k]._height);
-		std::cout << imgs[k].fname << std::endl;
+		//std::cout << imgs[k].fname << std::endl;
 		write_rgb(imgs[k].fname, *imgs[k].img);
 		//write_rgb(std::to_string(k+1) + ".png", *imgs[k].img);
 		imgs[k].release();
