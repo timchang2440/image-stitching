@@ -77,7 +77,6 @@ void ConnectedImages::update_proj_range() {
 }
 
 Vec2D ConnectedImages::get_final_resolution() const {
-  //cout << "projmin: " << proj_range.min << ", projmax: " << proj_range.max << endl;
 
   int refw = component[identity_idx].imgptr->width(),
       refh = component[identity_idx].imgptr->height();
@@ -89,7 +88,6 @@ Vec2D ConnectedImages::get_final_resolution() const {
       id_img_corner1 = identity_H.trans(Vec2D{-refw/2.0, -refh/2.0});
   // the range of the identity image
   Vec2D id_img_range = homo2proj(id_img_corner2) - homo2proj(id_img_corner1);
-  //cout << "Identity projection range: " << id_img_range << endl;
   if (proj_method != ProjectionMethod::flat) {
     if (id_img_range.x < 0)
       id_img_range.x = 2 * M_PI + id_img_range.x;
@@ -101,7 +99,6 @@ Vec2D ConnectedImages::get_final_resolution() const {
   Vec2D resolution = Vec2D(abs(id_img_range.x), abs(id_img_range.y)) / Vec2D(refw, refh),    // output-x-per-input-pixel, y-per-pixel
         target_size = proj_range.size() / resolution;
   double max_edge = max(target_size.x, target_size.y);
-  //print_debug("Target Image Size: (%lf, %lf)\n", target_size.x, target_size.y);
   if (max_edge > 80000 || target_size.x * target_size.y > 1e9)
     error_exit("Target size too large. Looks like a stitching failure!\n");
   // resize the result
@@ -109,7 +106,6 @@ Vec2D ConnectedImages::get_final_resolution() const {
     float ratio = max_edge / MAX_OUTPUT_SIZE;
     resolution *= ratio;
   }
-  //print_debug("Resolution: %lf,%lf\n", resolution.x, resolution.y);
   return resolution;
 }
 
@@ -164,7 +160,6 @@ void ConnectedImages::save_homography(const char* fname) const {
     else if(j == 2 && strcmp(fname, "parameter2") == 0) fout << component[i].homo.data[j]*2 << " ";
     else if(j == 2) fout << component[i].homo.data[j] << " ";
     else fout << 0 << " ";
-	//fout << component[i].homo.data[j] << " ";		
   }
   fout.close();
 }
@@ -180,11 +175,7 @@ void ConnectedImages::load_homography(const char* fname) {
     fin >> component[i].homo.data[j];
   }
   fin.close();
-  /*REP(i, n) REP(j,9) {
-    cout << comp[i].homo.data[j] << " ";
-  }
-  cout << endl;*/
-  
+ 
   calc_inverse_homo();
 }
 

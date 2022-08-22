@@ -46,6 +46,7 @@ const int LABEL_LEN = 7;
 Mat32f opencv2img(cv::Mat img) {
 
 	cv::cvtColor(img, img, cv::COLOR_BGR2RGBA);
+	//cv::cvtColor(img, img, cv::COLOR_BGR2GRAY);
 	unsigned w = img.cols, h = img.rows;
 	Mat32f mat(h, w, 3);
 	unsigned npixel = w * h;
@@ -66,15 +67,15 @@ cv::Mat img2opencv(Mat32f img) {
 
 	int w = img.cols(), h = img.rows();
 	cv::Mat res(h, w, CV_8UC3);
-
+#pragma omp parallel for schedule(dynamic) 
 	REP(i, h)
 		REP(j, w) {
-			res.ptr(i,j)[0] = img.at(i, j, 0) * 255.0;
+			res.ptr(i,j)[0] = img.at(i, j, 2) * 255.0;
 			res.ptr(i,j)[1] = img.at(i, j, 1) * 255.0;
-			res.ptr(i,j)[2] = img.at(i, j, 2) * 255.0;
+			res.ptr(i,j)[2] = img.at(i, j, 0) * 255.0;
 		}
 
-	cv::cvtColor(res, res, cv::COLOR_BGR2RGBA);
+	//cv::cvtColor(res, res, cv::COLOR_BGR2RGBA);
 	return res;
 	
 }
@@ -267,23 +268,25 @@ void work(int argc, char* argv[]) {
 	REPL(i, 1, argc) imgs.emplace_back(argv[i]);
 	Mat32f res;
 	StitcherBase *p;
-	if (CYLINDER) {
-		p = new CylinderStitcher(move(imgs));		
-		//res = p.build();
-	} else {
-		p = new Stitcher(move(imgs));
-		//res = p.build();
-	}
-    res = p->build_new();
+	p = new CylinderStitcher(move(imgs));		
+
+	res = p->build();
 	if (CROP) {
 		int oldw = res.width(), oldh = res.height();
 		res = crop(res);
 		print_debug("Crop from %dx%d to %dx%d\n", oldw, oldh, res.width(), res.height());
 	}
+	
+	cv::Mat image = img2opencv(res);
+	cv::namedWindow("Test window");
+	
+	cv::imshow("Test window", image);
+	cv::waitKey(0);
 	{
 		GuardedTimer tm("Writing image");
 		write_rgb(IMGFILE(out), res);
 	}
+
 }
 
 void loop(int argc, char* argv[]) {
@@ -305,12 +308,8 @@ void loop(int argc, char* argv[]) {
 	if(OPENCAM) p->load_camera(imgs.size());
 	else p->load_stream(imgs.size(), argv);
 	while(char(cv::waitKey(30)) != 'q'){
+		GuardedTimer tm("LOOP");
 		res = p->build_stream(shift);
-		if (CROP) {
-			//int oldw = res.width(), oldh = res.height();
-			res = crop(res);
-			//print_debug("Crop from %dx%d to %dx%d\n", oldw, oldh, res.width(), res.height());
-		}
 		Mat32f left(res.height(), int(res.width() / 2), 3);
 		Mat32f right(res.height(), int(res.width() / 2), 3);
 		REP(i, left.height())
@@ -326,18 +325,13 @@ void loop(int argc, char* argv[]) {
 			memcpy(dst, src, 3 * right.width() * sizeof(float));
 		}
 		res = q->build_two_image(right, left);
-		//sleep(1);
-		if (CROP) {
-			//int oldw = res.width(), oldh = res.height();
-			res = crop(res);
-			//print_debug("Crop from %dx%d to %dx%d\n", oldw, oldh, res.width(), res.height());
-		}
+		// if (CROP) {
+		// 	res = crop(res);
+		// }
 		cv::Mat image = img2opencv(res);
-		//cv::resize(image, image, cv::Size(image.cols * 0.5, image.rows * 0.5));
+		cv::resize(image, image, image.size() / 2);
 		cv::imshow("video window", image);
 	}
-	//writer.release();
-	std::cout << "writer close" << std::endl;
 	delete p;
 	{
 		GuardedTimer tm("Writing image");
@@ -347,15 +341,7 @@ void loop(int argc, char* argv[]) {
 }
 
 void test(int argc, char* argv[]) {
-/*
- *  vector<Mat32f> imgs(argc - 1);
- *  {
- *    GuardedTimer tm("Read images");
- *#pragma omp parallel for schedule(dynamic)
- *    REPL(i, 1, argc)
- *      imgs[i-1] = read_img(argv[i]);
- *  }
- */
+
  	std::cout << "test start" << std::endl;
 	vector<string> imgs;
 	REPL(i, 2, argc) imgs.emplace_back(argv[i]);
@@ -363,14 +349,13 @@ void test(int argc, char* argv[]) {
 	StitcherBase *p;
 	p = new CylinderStitcher(move(imgs));		
 
-	res = p->build_new();
+	res = p->build();
 	if (CROP) {
 		int oldw = res.width(), oldh = res.height();
 		res = crop(res);
 		print_debug("Crop from %dx%d to %dx%d\n", oldw, oldh, res.width(), res.height());
 	}
 	
-	//cv::Mat image = cv::imread("out.jpg");
 	cv::Mat image = img2opencv(res);
 	cv::namedWindow("Test window");
 	
@@ -391,17 +376,13 @@ void parameter(int argc, char* argv[]) {
 	imgs1.emplace_back(argv[argc-1]); imgs1.emplace_back(argv[2]); 
 	Mat32f res, res2;
 	cv::Mat image = cv::imread(argv[2]);
-	int times = image.cols * 0.03, crop = 0;
-	//std::cout << times << std::endl;
+	int times = image.cols * 0.03, crop = -1;
 	CylinderStitcher *p = new CylinderStitcher(move(imgs)), 
 					 *q = new CylinderStitcher(move(imgs1));
 	for(int i = 0;i < times;i++){
 		sleep(0.1);
 		if(!p->build_save("parameter", res) || !q->build_save("parameter2", res2))
 			continue;
-		//q->build_save("parameter2");
-		//cv::Mat image = cv::imread("out.jpg");
-		//cv::Mat image = img2opencv(res);
 		{
 			string name = "result" + to_string(i) + ".jpg";
 			GuardedTimer tm("Writing image");
@@ -410,11 +391,13 @@ void parameter(int argc, char* argv[]) {
 			crop = i;
 		}
 	}
-	std::cout << crop * 5 << std::endl;
-	ofstream fout("crop");
-    m_assert(fout.good());
-	fout << crop * 5;
-	fout.close();
+	if(crop >= 0){
+		ofstream fout("crop");
+		m_assert(fout.good());
+		fout << crop * 5;
+		fout.close();
+	}
+
 }
 
 void init_config() {
@@ -545,12 +528,6 @@ int main(int argc, char* argv[]) {
 	else
 		// the real routine
 		work(argc, argv);
-	/*sleep(0.5);
-	cv::Mat image = cv::imread("out.jpg");
-	cv::namedWindow("Test window");
-	cv::imshow("Test window", image);
-	cv::waitKey(0);
-	*/
 	return 0;
 }
 

@@ -25,22 +25,15 @@ void StitcherBase::calc_feature() {
     keypoints[k].resize(feats[k].size());
     REP(i, feats[k].size()){
       keypoints[k][i] = feats[k][i].coor;
-      //std::cout << keypoints[k][i]  << " " << std::endl;
       }
   }
   std::cout << std::endl;
 }
 
 void StitcherBase::load_stream(int number, char*argv[]) {
-	
-	//std::string sub = ".webm";
 	REPL(i, 0, number) {
-    //std::cout << std::to_string(i)+sub << std::endl;
-    //std::string name = std::to_string(i)+sub;
     caps[i].open(argv[i+2]);
 	}
-  //cv::VideoCapture cap(0);
-	//caps.push_back(cap);
 }
 
 void StitcherBase::load_camera(int number) {
@@ -62,8 +55,6 @@ void StitcherBase::load_camera(int number) {
     caps[i].set(cv::CAP_PROP_FRAME_HEIGHT, 800);
     caps[i].set(cv::CAP_PROP_CONVERT_RGB, 1);
 	}
-  //cv::VideoCapture cap(0);
-	//caps.push_back(cap);
   std::cout << "load camera end" << std::endl;
 }
 

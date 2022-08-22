@@ -19,8 +19,7 @@ class CylinderStitcher : public StitcherBase {
 		ConnectedImages bundle;
 
 		// build panorama with cylindrical pre-warping
-		void build_warp();
-		bool build_warp2();
+		bool build_warp();
 
 		void crop_save();
 

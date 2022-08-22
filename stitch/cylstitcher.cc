@@ -26,20 +26,7 @@ bool once = true;
 bool once1 = true;
 
 Mat32f CylinderStitcher::build() {
-    calc_feature();	  
-    bundle.identity_idx = imgs.size() >> 1;
-	build_warp();
-	bundle.save_homography(HOMOGRAPHY_DUMP);
-	free_feature();
-	bundle.proj_method = ConnectedImages::ProjectionMethod::flat;
-	bundle.update_proj_range();
-	auto ret = bundle.blend();
-	return perspective_correction(ret);
-}
-
-Mat32f CylinderStitcher::build_new() {
-	
-	if(LOADHOMO){
+    if(LOADHOMO){
         REP(k, (int)imgs.size()){
     		imgs[k].load();
         }
@@ -59,12 +46,37 @@ Mat32f CylinderStitcher::build_new() {
 	bundle.update_proj_range();
 	auto ret = bundle.blend();
 	return ret;
+}
+
+Mat32f CylinderStitcher::build_new() {Mat32f tmp; return tmp;}
+
+Mat32f CylinderStitcher::build_stream(int shift) {
+	cv::Mat tmp[(int)imgs.size()];
+	//GuardedTimer tm("build stream");	
+#pragma omp parallel for schedule(dynamic)
+	REP(i, (int)imgs.size()){
+		if(!caps[i].read(tmp[i]))
+			std::cout << "No frame to show, program stop." << std::endl;
+		imgs[i].load_opencv(tmp[i]);
+		imgs[i].cropped(shift, 0, imgs[i].width() - shift*2,imgs[i].height());
+	}
+	if(once){
+		bundle.identity_idx = imgs.size() >> 1;
+		bundle.load_homography(HOMOGRAPHY_DUMP);
+		bundle.proj_method = ConnectedImages::ProjectionMethod::flat;
+		bundle.update_proj_range();
+		once = false;
+	}
+	return bundle.blend();
+	
+	//original code. if don't care y-axis and rotation, it is not needed.
+	//auto ret = bundle.blend();
 	//return perspective_correction(ret);
 }
 
 Mat32f CylinderStitcher::build_two_image(Mat32f right, Mat32f left) {
 	
-	GuardedTimer tm("build twoImg");
+	//GuardedTimer tm("build twoImg");
     imgs[0].load_mat32f(right);
 	imgs[1].load_mat32f(left);
 
@@ -84,7 +96,7 @@ bool CylinderStitcher::build_save(const char* filename, Mat32f& mat) {
 	
     calc_feature();
     bundle.identity_idx = imgs.size() >> 1;
-	if(!build_warp2()){
+	if(!build_warp()){
 		if(strcmp(filename, "parameter") == 0)
 			crop_save();
 		return false;
@@ -114,30 +126,8 @@ Mat32f CylinderStitcher::build_load(const char* filename) {
 	return perspective_correction(ret);
 }
 
-Mat32f CylinderStitcher::build_stream(int shift) {
-	cv::Mat tmp;
-	GuardedTimer tm("build stream");	
-	REP(i, (int)imgs.size()){
-		caps[i] >> tmp;
-		imgs[i].load_opencv(tmp);
-		imgs[i].cropped(shift, 0, imgs[i].width() - shift*2,imgs[i].height());
-	}
-	if(once){
-		bundle.identity_idx = imgs.size() >> 1;
-		bundle.load_homography(HOMOGRAPHY_DUMP);
-		bundle.proj_method = ConnectedImages::ProjectionMethod::flat;
-		bundle.update_proj_range();
-		once = false;
-	}
-	return bundle.blend();
-	
-	//original code. if don't care y-axis and rotation, it is not needed.
-	//auto ret = bundle.blend();
-	//return perspective_correction(ret);
-}
-
-void CylinderStitcher::build_warp() {
-	GuardedTimer tm("build_warp()");
+bool CylinderStitcher::build_warp() {
+	//GuardedTimer tm("build_warp()");
 	int n = imgs.size(), mid = bundle.identity_idx;
 	REP(i, n) bundle.component[i].homo = Homography::I();
 
@@ -148,65 +138,7 @@ void CylinderStitcher::build_warp() {
 #pragma omp parallel for schedule(dynamic)
 	REP(k, n - 1)
 		matches[k] = pwmatcher.match(k, (k + 1) % n);
-	print_debug("match time: %lf secs\n", timer.duration());
-
-	vector<Homography> bestmat;
-
-	float minslope = numeric_limits<float>::max();
-	float bestfactor = 1;
-	if (n - mid > 1) {
-		float newfactor = 1;
-		// XXX: ugly
-		float slope = update_h_factor(newfactor, minslope, bestfactor, bestmat, matches);
-		if (bestmat.empty())
-			error_exit("Failed to find hfactor");
-		float centerx1 = 0, centerx2 = bestmat[0].trans2d(0, 0).x;
-		float order = (centerx2 > centerx1 ? 1 : -1);
-		REP(k, 3) {
-			if (fabs(slope) < SLOPE_PLAIN) break;
-			newfactor += (slope < 0 ? order : -order) / (5 * pow(2, k));
-			slope = update_h_factor(newfactor, minslope, bestfactor, bestmat, matches);
-		}
-	}
-	print_debug("Best hfactor: %lf\n", bestfactor);
-	CylinderWarper warper(bestfactor);
-	REP(k, n) imgs[k].load();
-#pragma omp parallel for schedule(dynamic)
-	REP(k, n) warper.warp(*imgs[k].img, keypoints[k]);
-
-	// accumulate
-	REPL(k, mid + 1, n) bundle.component[k].homo = move(bestmat[k - mid - 1]);
-#pragma omp parallel for schedule(dynamic)
-	REPD(i, mid - 1, 0) {
-		matches[i].reverse();
-		MatchInfo info;
-		bool succ = TransformEstimation(
-				matches[i], keypoints[i + 1], keypoints[i],
-				imgs[i+1].shape(), imgs[i].shape()).get_transform(&info);
-		// Can match before, but not here. This would be a bug.
-		if (! succ)
-			error_exit(ssprintf("Failed to match between image %d and %d.", i, i+1));
-		// homo: operate on half-shifted coor
-		bundle.component[i].homo = info.homo;
-	}
-	REPD(i, mid - 2, 0)
-		bundle.component[i].homo = bundle.component[i + 1].homo * bundle.component[i].homo;
-	bundle.calc_inverse_homo();
-}
-
-bool CylinderStitcher::build_warp2() {
-	GuardedTimer tm("build_warp()");
-	int n = imgs.size(), mid = bundle.identity_idx;
-	REP(i, n) bundle.component[i].homo = Homography::I();
-
-	Timer timer;
-	vector<MatchData> matches;		// matches[k]: k,k+1
-	PairWiseMatcher pwmatcher(feats);
-	matches.resize(n-1);
-#pragma omp parallel for schedule(dynamic)
-	REP(k, n - 1)
-		matches[k] = pwmatcher.match(k, (k + 1) % n);
-	print_debug("match time: %lf secs\n", timer.duration());
+	//print_debug("match time: %lf secs\n", timer.duration());
 
 	vector<Homography> bestmat;
 
