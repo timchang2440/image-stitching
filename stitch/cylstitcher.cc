@@ -24,6 +24,17 @@ const static char* HOMOGRAPHY_DUMP2 = "parameter2";
 
 bool once = true;
 bool once1 = true;
+cv::Mat map[2];
+
+void CylinderStitcher::Calibrate(){
+	float K[3][3] = {439.8081431898627, -1.11273685072125, 657.1262692712136, 0.0, 438.94230771583267, 398.84726805778035, 0., 0., 1.};
+	float D[4][1] = {-0.05426531284660334, 0.042009650323603445, -0.023596004020591154, 0.0046584199928515774};
+	cv::Mat camMat = cv::Mat(3,3,CV_32FC1, K);
+	cv::Mat distortion = cv::Mat(4, 1, CV_32FC1, D);
+	cv::fisheye::initUndistortRectifyMap(
+		camMat, distortion, cv::Matx33d::eye(), camMat, cv::Size(1280, 800), CV_16SC2, map[0], map[1]
+	);
+}
 
 Mat32f CylinderStitcher::build() {
     if(LOADHOMO){
@@ -52,12 +63,15 @@ Mat32f CylinderStitcher::build_new() {Mat32f tmp; return tmp;}
 
 Mat32f CylinderStitcher::build_stream(int shift) {
 	cv::Mat tmp[(int)imgs.size()];
+	cv::Mat undistortImg[(int)imgs.size()];
 	//GuardedTimer tm("build stream");	
 #pragma omp parallel for schedule(dynamic)
 	REP(i, (int)imgs.size()){
 		if(!caps[i].read(tmp[i]))
 			std::cout << "No frame to show, program stop." << std::endl;
-		imgs[i].load_opencv(tmp[i]);
+		cv::remap(tmp[i], undistortImg[i],
+			map[0], map[1], cv::INTER_LINEAR, cv::BORDER_CONSTANT);
+		imgs[i].load_opencv(undistortImg[i]);
 		imgs[i].cropped(shift, 0, imgs[i].width() - shift*2,imgs[i].height());
 	}
 	if(once){

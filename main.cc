@@ -307,11 +307,22 @@ void loop(int argc, char* argv[]) {
 	std::cout << "load stream" << std::endl;
 	if(OPENCAM) p->load_camera(imgs.size());
 	else p->load_stream(imgs.size(), argv);
+	p->Calibrate();
 	while(char(cv::waitKey(30)) != 'q'){
 		GuardedTimer tm("LOOP");
 		res = p->build_stream(shift);
 		Mat32f left(res.height(), int(res.width() / 2), 3);
 		Mat32f right(res.height(), int(res.width() / 2), 3);
+		// Mat32f tmp[2] = {right, left};
+		// float *dst[2], *src[2];
+		
+		// REP(i, 2)
+		
+		// 	REP(j, tmp[i].height()){
+		// 		dst[i] = tmp[i].ptr(j, 0);
+		// 		src[i] = res.ptr(j, i * right.width());
+		// 		memcpy(dst[i], src[i], 3 * tmp[i].width() * sizeof(float));
+		// 	}
 		REP(i, left.height())
 		{
 			float* dst = left.ptr(i, 0);

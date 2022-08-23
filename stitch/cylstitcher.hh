@@ -39,7 +39,7 @@ class CylinderStitcher : public StitcherBase {
 				REP(i, imgs.size())
 					bundle.component[i].imgptr = &imgs[i];
 			}
-
+		void Calibrate();
 		virtual Mat32f build();
 		virtual Mat32f build_new();	
 		Mat32f build_stream(int);
