@@ -58,6 +58,15 @@ void StitcherBase::load_camera(int number) {
   std::cout << "load camera end" << std::endl;
 }
 
+void StitcherBase::save_image(int number) {
+  
+  cv::Mat tmp[number];
+  for(int i = 0;i < number;i++){
+    caps[i].read(tmp[i]);
+    cv::imwrite(imgs[i].fname, tmp[i]);
+	}
+}
+
 void StitcherBase::free_feature() {
   feats.clear(); feats.shrink_to_fit();  // free memory for feature
   keypoints.clear(); keypoints.shrink_to_fit();  // free memory for feature

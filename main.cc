@@ -295,7 +295,7 @@ void loop(int argc, char* argv[]) {
 	ifstream fin("crop");
 	int shift = 100;
   	if(!fin.is_open())
-    	error_exit("Parameter file can not read, please check file existed.\n");
+    	error_exit("crop file can not read, please check file existed.\n");
 	fin >> shift;
  	std::cout << "loop start" << std::endl;
 	vector<string> imgs, imgs1;	
@@ -317,7 +317,6 @@ void loop(int argc, char* argv[]) {
 		// float *dst[2], *src[2];
 		
 		// REP(i, 2)
-		
 		// 	REP(j, tmp[i].height()){
 		// 		dst[i] = tmp[i].ptr(j, 0);
 		// 		src[i] = res.ptr(j, i * right.width());
@@ -386,10 +385,18 @@ void parameter(int argc, char* argv[]) {
 	REPL(i, 2, argc) imgs.emplace_back(argv[i]);
 	imgs1.emplace_back(argv[argc-1]); imgs1.emplace_back(argv[2]); 
 	Mat32f res, res2;
-	cv::Mat image = cv::imread(argv[2]);
-	int times = image.cols * 0.03, crop = -1;
+
 	CylinderStitcher *p = new CylinderStitcher(move(imgs)), 
 					 *q = new CylinderStitcher(move(imgs1));
+	if(OPENCAM){
+		std::cout << "Save image!!" << std::endl;
+		p->load_camera(imgs.size());
+		p->save_image(imgs.size());
+		sleep(0.1);
+	}
+	cv::Mat image = cv::imread(argv[2]);
+	int times = image.cols * 0.03, crop = -1;
+	std::cout << times << std::endl;
 	for(int i = 0;i < times;i++){
 		sleep(0.1);
 		if(!p->build_save("parameter", res) || !q->build_save("parameter2", res2))
