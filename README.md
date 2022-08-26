@@ -21,6 +21,8 @@ This code is from [ppwwyyxx/OpenPanno](https://github.com/ppwwyyxx/OpenPano).
     And then set **LOADHOMO** to 1 could skip the step before transformation.
 	
 - Add parameter **LOADCAM** in config.cfg would swich load camera or video.
+	In parameter phase, it will open camera and catch the pictures.
+	Also need to type the file name according to the camera number.
 
 
 ## Usage
