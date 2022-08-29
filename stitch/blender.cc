@@ -28,11 +28,9 @@ Mat32f LinearBlender::run() {
 					Vec2D img_coor = img.map_coor(i, j); \
 					if (img_coor.isNaN()) continue; \
 					float r = img_coor.y, c = img_coor.x; \
-					auto color = interpolate(*img.imgref.img, r, c); \
+					auto color = Color(img.imgref.img->ptr(r, c));\
 					if (color.x < 0) continue; \
 					float	w = 0.5 - fabs(c / img.imgref.width() - 0.5); \
-					if (not config::ORDERED_INPUT) /* blend both direction */\
-						w *= (0.5 - fabs(r / img.imgref.height() - 0.5)); \
 					color *= w
 
 	if (LAZY_READ) {
@@ -75,7 +73,7 @@ Mat32f LinearBlender::run() {
 			}
 		}
 	} else {
-		fill(target, Color::NO);
+		fill(target, Color::BLACK);
 #pragma omp parallel for schedule(dynamic)
 		for (int i = 0; i < target.height(); i ++) {
 			float *row = target.ptr(i);

@@ -38,7 +38,7 @@ class BlenderBase {
 
 			Vec2D map_coor(int r, int c) const {
 				auto ret = coor_func(Coor(c, r));
-				if (ret.x < 0 || ret.x >= imgref.width() || ret.y < 0 || ret.y >= imgref.height())
+				if (ret.x < 0 || ret.x + 1 >= imgref.width() || ret.y < 0 || ret.y + 1>= imgref.height())
 					ret = Vec2D::NaN();
 				return ret;
 			}
