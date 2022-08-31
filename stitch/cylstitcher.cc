@@ -52,7 +52,7 @@ Mat32f CylinderStitcher::build() {
 		bundle.save_homography(HOMOGRAPHY_DUMP);
 	    free_feature();
     }
-
+	std::cout << "blend" << std::endl;
 	bundle.proj_method = ConnectedImages::ProjectionMethod::flat;
 	bundle.update_proj_range();
 	auto ret = bundle.blend();
@@ -69,9 +69,12 @@ Mat32f CylinderStitcher::build_stream(int shift) {
 	REP(i, (int)imgs.size()){
 		if(!caps[i].read(tmp[i]))
 			std::cout << "No frame to show, program stop." << std::endl;
-		cv::remap(tmp[i], undistortImg[i],
-			map[0], map[1], cv::INTER_LINEAR, cv::BORDER_CONSTANT);
-		imgs[i].load_opencv(undistortImg[i]);
+		if(FISHEYE){
+			cv::remap(tmp[i], undistortImg[i], map[0], map[1], cv::INTER_LINEAR, cv::BORDER_CONSTANT);
+			imgs[i].load_opencv(undistortImg[i]);
+		}
+		else	
+			imgs[i].load_opencv(tmp[i]);
 		imgs[i].cropped(shift, 0, imgs[i].width() - shift*2,imgs[i].height());
 	}
 	if(once){
@@ -86,6 +89,29 @@ Mat32f CylinderStitcher::build_stream(int shift) {
 	//original code. if don't care y-axis and rotation, it is not needed.
 	//auto ret = bundle.blend();
 	//return perspective_correction(ret);
+}
+
+Matuc CylinderStitcher::build_stream_uc(int shift) {
+	cv::Mat tmp[(int)imgs.size()];
+	cv::Mat undistortImg[(int)imgs.size()];
+#pragma omp parallel for schedule(dynamic)
+	REP(i, (int)imgs.size()){
+		caps[i] >> tmp[i];
+		if(FISHEYE){
+			cv::remap(tmp[i], undistortImg[i], map[0], map[1], cv::INTER_LINEAR, cv::BORDER_CONSTANT);
+			imgs[i].load_opencv_uc(undistortImg[i], shift);
+		}
+		else
+			imgs[i].load_opencv_uc(tmp[i], shift);
+    }
+    if(once){
+        bundle.identity_idx = imgs.size() >> 1;
+        bundle.load_homography(HOMOGRAPHY_DUMP);
+        bundle.proj_method = ConnectedImages::ProjectionMethod::flat;
+        bundle.update_proj_range();
+        once = false;
+    }
+    return bundle.blend_uc();
 }
 
 Mat32f CylinderStitcher::build_two_image(Mat32f right, Mat32f left) {
@@ -104,6 +130,19 @@ Mat32f CylinderStitcher::build_two_image(Mat32f right, Mat32f left) {
 	return bundle.blend();
 	//auto ret = bundle.blend();
 	//return perspective_correction(ret);
+}
+
+Matuc CylinderStitcher::build_two_image_uc(Matuc right, Matuc left) {
+    imgs[0].load_matuc(right);
+    imgs[1].load_matuc(left);
+    if(once1){
+        bundle.identity_idx = imgs.size() >> 1;
+        bundle.load_homography(HOMOGRAPHY_DUMP2);
+        bundle.proj_method = ConnectedImages::ProjectionMethod::flat;
+        bundle.update_proj_range();
+        once1 = false;
+    }
+    return bundle.blend_uc();
 }
 
 bool CylinderStitcher::build_save(const char* filename, Mat32f& mat) {

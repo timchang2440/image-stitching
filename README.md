@@ -24,6 +24,9 @@ This code is from [ppwwyyxx/OpenPanno](https://github.com/ppwwyyxx/OpenPano).
 	In parameter phase, it will open camera and catch the pictures.
 	Also need to type the file name according to the camera number.
 
+- Add parameter **FISHEYE** in config.cfg. It would let camera calibrate by using opencv.
+
+-Add parameter **VIDEO_WRITE** in config.cfg. set to 1 would write down the video.
 
 ## Usage
 	/*Generate homography matrix step, use png or jpg format. It would generate parameter, parameter2 and crop file.*/
@@ -34,6 +37,9 @@ This code is from [ppwwyyxx/OpenPanno](https://github.com/ppwwyyxx/OpenPano).
 	
 	/*Setting OPENCAM to 0 in config.cfg would Load video.*/
 	./image_stitch loop file1 file2 ...
+	
+	/*Use origin Mat32f */
+	./image_stitch loop_old file1 file2 ...
 	
 	/*Setting OPENCAM to 1 in config.cfg would open camera, use camera index.*/
 	./image_stitch loop 0 1 ...

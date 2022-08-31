@@ -93,4 +93,46 @@ Mat32f LinearBlender::run() {
 	return target;
 }
 
+Matuc LinearBlender::run_uc() {
+    Matuc target(target_size.y, target_size.x, 3);
+    fill(target, 0);
+    int smoothPixel = 30, size = images.size();
+    for (int z=0; z<size; z++) {
+        int minPosition, maxPosition;
+        if (z==0) {
+            minPosition = images[z].range.min.x;
+            maxPosition = ((images[z].range.max.x+images[z+1].range.min.x)>>1)-smoothPixel;
+        } else if (z==(size-1)) {
+            minPosition = ((images[z-1].range.max.x+images[z].range.min.x)>>1)+smoothPixel;
+            maxPosition = images[z].range.max.x;
+        } else {
+            minPosition = ((images[z-1].range.max.x+images[z].range.min.x)>>1)+smoothPixel;
+            maxPosition = ((images[z].range.max.x+images[z+1].range.min.x)>>1)-smoothPixel;
+        }
+#pragma omp parallel for schedule(dynamic)                        
+        for (int i = images[z].range.min.y; i < images[z].range.max.y; i ++) {
+            auto des = target.ptr(i, minPosition);
+            auto src = images[z].imgref.imguc->ptr(i, minPosition-images[z].range.min.x);
+            memcpy(des, src, sizeof(unsigned char)*(maxPosition-minPosition)*3);
+        }
+    }
+
+    for (int z=0; z<(size-1); z++) {
+        int rightCenter = (images[z+1].range.min.x + images[z].range.max.x) >> 1;
+#pragma omp parallel for schedule(dynamic)
+        for (int i = images[z].range.min.y; i < images[z].range.max.y; i ++) {
+            int count = 0;
+            for (int j=(rightCenter-smoothPixel); j<=(rightCenter+smoothPixel); j++) {
+                unsigned char* p = images[z].imgref.imguc->ptr(i, j-images[z].range.min.x);
+                unsigned char* q = images[z+1].imgref.imguc->ptr(i, j-images[z+1].range.min.x);
+                target.at(i, j, 0) = (((2*smoothPixel-count)*p[0]/(2*smoothPixel))+(count*q[0]/(2*smoothPixel)));
+                target.at(i, j, 1) = (((2*smoothPixel-count)*p[1]/(2*smoothPixel))+(count*q[1]/(2*smoothPixel)));
+                target.at(i, j, 2) = (((2*smoothPixel-count)*p[2]/(2*smoothPixel))+(count*q[2]/(2*smoothPixel)));
+                count++;
+            }
+        }
+    }
+    return target;
+}
+
 }

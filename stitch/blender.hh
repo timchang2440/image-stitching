@@ -56,6 +56,7 @@ class BlenderBase {
 				std::function<Vec2D(Coor)> coor_func) = 0;
 
 		virtual Mat32f run() = 0;
+		virtual Matuc run_uc() = 0;
 };
 
 class LinearBlender : public BlenderBase {
@@ -71,6 +72,7 @@ class LinearBlender : public BlenderBase {
 			std::function<Vec2D(Coor)>) override;
 
 	Mat32f run() override;
+	Matuc run_uc() override;
 
 	// render each component, for debug
 	void debug_run(int w, int h);

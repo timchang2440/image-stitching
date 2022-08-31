@@ -16,6 +16,7 @@ namespace pano {
 struct ImageRef {
   std::string fname;
   Mat32f* img = nullptr;
+  Matuc* imguc = nullptr;
   int _width, _height;
 
   ImageRef(const std::string& fname): fname(fname) {}
@@ -50,7 +51,23 @@ struct ImageRef {
     _width = w;
     _height = h;
   }
+  
+  void load_opencv_uc(cv::Mat img_cv, int shift) {
+    if (imguc) delete imguc;
+    cv::cvtColor(img_cv, img_cv, cv::COLOR_BGR2RGB);
+    int w = img_cv.cols-2*shift, h = img_cv.rows;
+    Matuc *mat = new Matuc(h, w, 3);
 
+    REP(i, h){
+      unsigned char* dst = mat->ptr(i, 0);
+	    unsigned char* src = img_cv.ptr(i, shift);
+	    memcpy(dst, src, 3 * w * sizeof(unsigned char));
+    }
+
+    imguc = mat;
+    _width = w;
+    _height = h;
+  }
   void load_mat32f(Mat32f LRimg) {
       release();
       img = new Mat32f{LRimg.clone()};;
@@ -58,6 +75,14 @@ struct ImageRef {
       _height = img->height();
   }
 
+  void load_matuc(Matuc LRimg) {
+	  if (imguc) delete imguc;
+      Matuc *mat = new Matuc{LRimg.clone()};
+	  imguc = mat;
+	  _width = imguc->width();
+	  _height = imguc->height();
+  }
+  
   void cropped(int startX, int startY, int width, int height){
 
     if(startX + width > _width || startY + height > _height) error_exit("Failed to crop image\n");

@@ -80,6 +80,14 @@ cv::Mat img2opencv(Mat32f img) {
 	
 }
 
+cv::Mat img2opencv_uc(Matuc img) {
+    int w = img.cols(), h = img.rows();	
+    cv::Mat res(h, w, CV_8UC3);
+    memcpy(res.ptr(), img.ptr(), sizeof(unsigned char)*w*h*3);
+    cv::cvtColor(res, res, cv::COLOR_BGR2RGBA);
+    return res;
+}
+
 void test_extrema(const char* fname, int mode) {
 	//auto mat = read_img(fname);
 	cv::Mat image = cv::imread(fname);
@@ -289,7 +297,7 @@ void work(int argc, char* argv[]) {
 
 }
 
-void loop(int argc, char* argv[]) {
+void loop_old(int argc, char* argv[]) {
 
 	LAZY_READ = 0;
 	ifstream fin("crop");
@@ -308,20 +316,19 @@ void loop(int argc, char* argv[]) {
 	if(OPENCAM) p->load_camera(imgs.size());
 	else p->load_stream(imgs.size(), argv);
 	p->Calibrate();
+
+	bool isColor = true;
+	cv::VideoWriter writer;
+    int codec = cv::VideoWriter::fourcc('M', 'J', 'P', 'G');  // select desired codec (must be available at runtime)
+    double fps = 30.0;                          // framerate of the created video stream
+    string filename = "./live.avi";             // name of the output video file
+	bool once = true;
+
 	while(char(cv::waitKey(30)) != 'q'){
 		GuardedTimer tm("LOOP");
 		res = p->build_stream(shift);
 		Mat32f left(res.height(), int(res.width() / 2), 3);
 		Mat32f right(res.height(), int(res.width() / 2), 3);
-		// Mat32f tmp[2] = {right, left};
-		// float *dst[2], *src[2];
-		
-		// REP(i, 2)
-		// 	REP(j, tmp[i].height()){
-		// 		dst[i] = tmp[i].ptr(j, 0);
-		// 		src[i] = res.ptr(j, i * right.width());
-		// 		memcpy(dst[i], src[i], 3 * tmp[i].width() * sizeof(float));
-		// 	}
 		REP(i, left.height())
 		{
 			float* dst = left.ptr(i, 0);
@@ -339,10 +346,20 @@ void loop(int argc, char* argv[]) {
 		// 	res = crop(res);
 		// }
 		cv::Mat image = img2opencv(res);
+		if(once){
+			writer.open(filename, codec, fps, image.size(), isColor);
+    		// check if we succeeded
+    		if (!writer.isOpened()) {
+        		cerr << "Could not open the output video file for write\n";
+        		return;
+    		}
+			once = false;
+		}
+		if(VIDEO_WRITE) writer.write(image);
 		cv::resize(image, image, image.size() / 2);
 		cv::imshow("video window", image);
 	}
-	delete p;
+	delete p;delete q;
 	{
 		GuardedTimer tm("Writing image");
 		write_rgb(IMGFILE(out), res);
@@ -350,8 +367,70 @@ void loop(int argc, char* argv[]) {
 
 }
 
-void test(int argc, char* argv[]) {
+void loop(int argc, char* argv[]) {
+    LAZY_READ = 0;
+    ifstream fin("crop");
+    int shift = 100;
+    if(!fin.is_open())
+    error_exit("Parameter file can not read, please check file existed.\n");
+    fin >> shift;
+    std::cout << "loop start" << std::endl;
+    vector<string> imgs, imgs1;
+    REPL(i, 2, argc) imgs.emplace_back(" ");
+    REP(i, 2) imgs1.emplace_back(" ");
 
+	Matuc res;
+    CylinderStitcher *p = new CylinderStitcher(move(imgs)), *q = new CylinderStitcher(move(imgs1));
+
+    std::cout << "load stream" << std::endl;
+    if(OPENCAM) p->load_camera(imgs.size());
+	else p->load_stream(imgs.size(), argv);
+	p->Calibrate();
+
+	bool isColor = true;
+	cv::VideoWriter writer;
+    int codec = cv::VideoWriter::fourcc('M', 'J', 'P', 'G');  // select desired codec (must be available at runtime)
+    double fps = 30.0;                          // framerate of the created video stream
+    string filename = "./live.avi";             // name of the output video file
+	bool once = true;
+
+    while(char(cv::waitKey(1)) != 'q'){
+		GuardedTimer tm("LOOP");
+        res = p->build_stream_uc(shift);
+        Matuc left(res.height(), int(res.width() / 2), 3);
+        Matuc right(res.height(), int(res.width() / 2), 3);
+        REP(i, left.height()){
+            unsigned char* dst = left.ptr(i, 0);
+            unsigned char* src = res.ptr(i);
+            memcpy(dst, src, 3 * left.width() * sizeof(unsigned char));
+        }
+        REP(i, right.height()){
+            unsigned char* dst = right.ptr(i, 0);
+            unsigned char* src = res.ptr(i, right.width());
+            memcpy(dst, src, 3 * right.width() * sizeof(unsigned char));
+        }
+        res = q->build_two_image_uc(right, left);
+
+        cv::Mat image = img2opencv_uc(res);
+		if(once){
+			writer.open(filename, codec, fps, image.size(), isColor);
+    		// check if we succeeded
+    		if (!writer.isOpened()) {
+        		cerr << "Could not open the output video file for write\n";
+        		return;
+    		}
+			once = false;
+		}
+		if(VIDEO_WRITE) writer.write(image);
+
+        cv::resize(image, image, cv::Size(image.cols * 0.5, image.rows * 0.5));
+        cv::imshow("video window", image);
+    }
+	delete p;delete q;
+}
+
+void test(int argc, char* argv[]) {
+	LAZY_READ = 1;
  	std::cout << "test start" << std::endl;
 	vector<string> imgs;
 	REPL(i, 2, argc) imgs.emplace_back(argv[i]);
@@ -399,13 +478,27 @@ void parameter(int argc, char* argv[]) {
 	std::cout << times << std::endl;
 	for(int i = 0;i < times;i++){
 		sleep(0.1);
-		if(!p->build_save("parameter", res) || !q->build_save("parameter2", res2))
+		if(!p->build_save("parameter", res))
+			continue;
+		Mat32f left(res.height(), int(res.width() / 2), 3);
+        Mat32f right(res.height(), int(res.width() / 2), 3);
+		REP(i, left.height()){
+            float* dst = left.ptr(i, 0);
+	        const float* src = res.ptr(i);
+	        memcpy(dst, src, 3 * left.width() * sizeof(float));
+	    }
+		REP(i, right.height()){
+	        float* dst = right.ptr(i, 0);
+        	const float* src = res.ptr(i, right.width());
+	        memcpy(dst, src, 3 * right.width() * sizeof(float));
+        }
+		if(!q->build_save("parameter2", res2))
 			continue;
 		{
 			string name = "result" + to_string(i) + ".jpg";
 			GuardedTimer tm("Writing image");
 			write_rgb(name, res);
-			write_rgb("test.jpg", res2);
+			//write_rgb("test.jpg", res2);
 			crop = i;
 		}
 	}
@@ -474,6 +567,8 @@ void init_config() {
 	CFG(MULTIBAND);
 	CFG(LOADHOMO);
 	CFG(OPENCAM);
+	CFG(FISHEYE);
+	CFG(VIDEO_WRITE);
 #undef CFG
 }
 
@@ -539,6 +634,8 @@ int main(int argc, char* argv[]) {
 		planet(argv[2]);
 	else if (command == "loop")
 		loop(argc, argv);
+	else if (command == "loop_old")
+		loop_old(argc, argv);
 	else if (command == "test")
 		test(argc, argv);
 	else if (command == "parameter")

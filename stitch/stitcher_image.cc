@@ -150,6 +150,45 @@ Mat32f ConnectedImages::blend() const {
   return blender->run();
 }
 
+Matuc ConnectedImages::blend_uc() const {
+  auto proj2homo = get_proj2homo();
+  Vec2D resolution = get_final_resolution();
+
+  Vec2D size_d = proj_range.size() / resolution;
+  Coor size(size_d.x, size_d.y);
+  //print_debug("Final Image Size: (%d, %d)\n", size.x, size.y);
+
+  auto scale_coor_to_img_coor = [&](Vec2D v) {
+    v = (v - proj_range.min) / resolution;
+    return Coor(v.x, v.y);
+  };
+
+  // blending
+  std::unique_ptr<BlenderBase> blender;
+  if (MULTIBAND > 0)
+    blender.reset(new MultiBandBlender{MULTIBAND});
+  else
+    blender.reset(new LinearBlender);
+  for (auto& cur : component) {
+    Coor top_left = scale_coor_to_img_coor(cur.range.min);
+    Coor bottom_right = scale_coor_to_img_coor(cur.range.max);
+
+    blender->add_image(top_left, bottom_right, *cur.imgptr,
+        [=,&cur](Coor t) -> Vec2D {
+          Vec2D c = Vec2D(t.x, t.y) * resolution + proj_range.min;
+          Vec homo = proj2homo(Vec2D(c.x, c.y));
+          Vec ret = cur.homo_inv.trans(homo);
+          if (ret.z < 0)
+            return Vec2D{-10, -10};  // was projected to the other side of the lens, discard
+          double denom = 1.0 / ret.z;
+          return Vec2D{ret.x*denom, ret.y*denom}
+                + cur.imgptr->shape().center();
+        });
+  }
+
+  return blender->run_uc();
+}
+
 void ConnectedImages::save_homography(const char* fname) const {
   print_debug("save homography matrix to %s\n", fname);
   ofstream fout(fname);
